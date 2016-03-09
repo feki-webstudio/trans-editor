@@ -1,0 +1,21 @@
+{
+  "name": "fekiwebstudio/trans-editor",
+  "description": "Trans-Editor is a set of tools for editing the Laravel language files on a PHP powered frontend",
+  "authors": [
+    {
+      "name": "Zsolt",
+      "email": "fekete.zsolt@fekiwebstudio.hu",
+      "role": "Developer"
+    }
+  ],
+  "minimum-stability": "stable",
+  "require": {
+    "php": ">=5.6.0",
+    "laravel/framework": "5.*"
+  },
+  "autoload": {
+    "psr-4": {
+      "FekiWebstudio\\TransEditor\\": "src/FekiWebstudio/TransEditor"
+    }
+  }
+}
