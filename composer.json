@@ -17,5 +17,8 @@
     "psr-4": {
       "FekiWebstudio\\TransEditor\\": "src/FekiWebstudio/TransEditor"
     }
+  },
+  "require-dev": {
+    "phpunit/phpunit": "^5.2"
   }
 }
