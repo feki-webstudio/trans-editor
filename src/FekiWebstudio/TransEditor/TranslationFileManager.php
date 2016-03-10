@@ -60,10 +60,27 @@ class TranslationFileManager
         return $entries;
     }
 
-    
+    /**
+     * Writes the files of the specified translation group.
+     *
+     * @param string $translationGroup
+     * @param array $translations
+     */
     public function write($translationGroup, $translations)
     {
+        // Get all locales
+        $locales = $this->getLocales($this->getLocalesDirectory());
 
+        // Loop through translations and write corresponding files
+        foreach ($locales as $locale) {
+            if (array_key_exists($locale, $translations)) {
+                // Get filename
+                $translationFile = $this->getTranslationGroupFilePath($translationGroup, $locale);
+
+                // Write file
+                $this->writeArrayToFile($translationFile, $translations[$locale]);
+            }
+        }
     }
 
     /**
@@ -86,6 +103,40 @@ class TranslationFileManager
                 return pathinfo($item, PATHINFO_FILENAME);
             })
             ->toArray();
+    }
+
+    /**
+     * Writes an array to a file.
+     *
+     * @param string $fileName
+     * @param array $array
+     */
+    private function writeArrayToFile($fileName, $array)
+    {
+        // Delete file if exists
+        if (File::exists($fileName)) {
+            File::delete($fileName);
+        }
+
+        // Write php header
+        File::append($fileName, "<?php\n\n");
+
+        // Write array
+        File::append("return " . $this->arrayToString($array));
+
+        // Write file end
+        File::append(";");
+    }
+
+    /**
+     * Returns the PHP string notation of the array.
+     *
+     * @param array|string $array
+     * @return string
+     */
+    private function arrayToString($array)
+    {
+        return print_r($array, true);
     }
 
     /**

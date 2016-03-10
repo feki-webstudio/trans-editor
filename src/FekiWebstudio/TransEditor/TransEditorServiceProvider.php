@@ -32,16 +32,9 @@ class TransEditorServiceProvider extends ServiceProvider
      */
     public function register()
     {
-        return false;
-
-        // TODO : DELETE THIS
-        $this->app->singleton('transeditor', function ($app) {
-            return new ThumberManager($app);
-        });
-
-        $this->app->bind('thumb', function()
+        $this->app->bind('transeditor', function()
         {
-            return new ThumbnailManager();
+            return new TranslationFileManager();
         });
     }
 
