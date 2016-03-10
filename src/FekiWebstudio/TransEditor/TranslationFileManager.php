@@ -39,7 +39,7 @@ class TranslationFileManager
         }
 
         // Get group entries from the fallback language
-        $fallback = require_once($fallbackFile);
+        $fallback = require($fallbackFile);
 
         // Use fallback as the default
         $entries = [];
@@ -122,10 +122,10 @@ class TranslationFileManager
         File::append($fileName, "<?php\n\n");
 
         // Write array
-        File::append("return " . $this->arrayToString($array));
+        File::append($fileName, "return " . $this->arrayToString($array));
 
         // Write file end
-        File::append(";");
+        File::append($fileName, ";");
     }
 
     /**
@@ -136,7 +136,7 @@ class TranslationFileManager
      */
     private function arrayToString($array)
     {
-        return print_r($array, true);
+        return var_export($array, true);
     }
 
     /**
@@ -150,14 +150,14 @@ class TranslationFileManager
     private function getEntriesOrDefault($translationGroup, $locale, $fallback)
     {
         // Read file
-        $translation = require_once($this->getTranslationGroupFilePath($translationGroup, $locale));
+        $translation = require($this->getTranslationGroupFilePath($translationGroup, $locale));
 
         // Get entries
         $entries = [];
 
         // Loop through default
         foreach ($fallback as $translationKey => $fallbackValue) {
-            if (array_key_exists($translationKey, $translation)) {
+            if (is_array($translation) && array_key_exists($translationKey, $translation)) {
                 // Entry exists in the translation, use it
                 $entries[$translationKey] = $translation[$translationKey];
             } else {
@@ -178,7 +178,9 @@ class TranslationFileManager
     private function getLocales($path)
     {
         // Get subdirectories
-        return File::directories($path);
+        return collect(File::directories($path))->map(function($item, $key) {
+            return pathinfo($item, PATHINFO_BASENAME);
+        });
     }
 
     /**
@@ -191,7 +193,6 @@ class TranslationFileManager
         // Get path from config
         return config('transeditor.language_file_path');
     }
-
 
     /**
      * Gets the applications fallback locale.

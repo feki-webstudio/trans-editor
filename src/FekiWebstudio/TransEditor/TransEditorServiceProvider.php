@@ -24,7 +24,6 @@ class TransEditorServiceProvider extends ServiceProvider
         $this->publishes([
             $configFile => config_path('transeditor.php')
         ], 'config');
-
     }
 
     /**
