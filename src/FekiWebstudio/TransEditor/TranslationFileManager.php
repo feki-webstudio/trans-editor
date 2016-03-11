@@ -8,6 +8,7 @@
 namespace FekiWebstudio\TransEditor;
 
 use File;
+use InvalidArgumentException;
 
 /**
  * Class TranslationFileManager is responsible for reading and
@@ -19,7 +20,7 @@ class TranslationFileManager
 {
     /**
      * Reads a translation group and returns the values grouped to
-     * an array with keys as locales.
+     * an array with keys as entry and translation array as value.
      *
      * @param string $translationGroup
      * @return array
@@ -27,37 +28,115 @@ class TranslationFileManager
     public function read($translationGroup)
     {
         // Get all locales and the fallback directory
-        $locales = collect($this->getLocales($this->getLocalesDirectory()));
+        $locales = collect($this->getAvailableLocales());
         $fallbackLocale = $this->getFallbackLocale();
 
         // Get the fallback file
-        $fallbackFile = $this->getTranslationGroupFilePath($translationGroup, $fallbackLocale);
+        $fallbackFile = $this->getTranslationFilePath($translationGroup, $fallbackLocale);
 
         // Check if fallback file exists
         if (! File::exists($fallbackFile)) {
-            throw new \InvalidArgumentException("Specified translation group does not exist.");
+            throw new InvalidArgumentException("Specified translation group does not exist.");
         }
 
         // Get group entries from the fallback language
         $fallback = require($fallbackFile);
 
-        // Use fallback as the default
-        $entries = [];
-        $entries[$fallbackLocale] = $fallback;
+        // Get entries
+        $localeEntries = [$fallbackLocale => $fallback];
 
-        // Get other languages
         foreach ($locales->except($fallbackLocale) as $locale) {
-            if (File::exists($this->getTranslationGroupFilePath($translationGroup, $locale))) {
-                // File exists, get the entries of it
-                $entries[$locale] = $this->getEntriesOrDefault($translationGroup, $locale, $fallback);
+            if (File::exists($this->getTranslationFilePath($translationGroup, $locale))) {
+                $localeEntries[$locale] = require($this->getTranslationFilePath($translationGroup, $locale));
             } else {
-                // File does not exist, use fallback
-                $entries[$locale] = $fallback;
+                $localeEntries[$locale] = $fallback;
+            }
+        }
+
+        // Fill array with translation entries
+        $entries = [];
+
+        // Loop through entries - only use entries that exist in the fallback file
+        foreach (array_keys($fallback) as $entryKey) {
+            $entries[$entryKey] = [];
+
+            // Add all translations
+            foreach ($locales as $locale) {
+                // Check if entry exists
+                if (array_key_exists($entryKey, $localeEntries[$locale])) {
+                    // Entry exists
+                    $entries[$entryKey][$locale] = $localeEntries[$locale][$entryKey];
+                } else {
+                    // Entry doesn't exist, use fallback
+                    $entries[$entryKey][$locale] = $fallback[$entryKey];
+                }
             }
         }
 
         // Return entries
         return $entries;
+    }
+
+    /**
+     * Gets the array of all available locales.
+     *
+     * @return array
+     */
+    public function getAvailableLocales()
+    {
+        return $this->getLocales($this->getLocalesDirectory());
+    }
+
+    /**
+     * Gets the array of the available languages.
+     *
+     * @param string $path
+     * @return array
+     */
+    private function getLocales($path)
+    {
+        // Get subdirectories
+        return collect(File::directories($path))->map(function ($item, $key) {
+            return pathinfo($item, PATHINFO_BASENAME);
+        });
+    }
+
+    /**
+     * Gets the path to the language files' directory.
+     *
+     * @return string
+     */
+    private function getLocalesDirectory()
+    {
+        // Get path from config
+        return config('transeditor.language_file_path');
+    }
+
+    /**
+     * Gets the applications fallback locale.
+     *
+     * @return string
+     */
+    private function getFallbackLocale()
+    {
+        return config('app.fallback_locale');
+    }
+
+    /**
+     * Gets the path to a translation group file.
+     *
+     * @param string $translationGroup
+     * @param string $locale
+     * @return string
+     */
+    private function getTranslationFilePath($translationGroup, $locale)
+    {
+        return $this->getLocalesDirectory() .
+        DIRECTORY_SEPARATOR .
+        $locale .
+        DIRECTORY_SEPARATOR .
+        $translationGroup .
+        '.php';
     }
 
     /**
@@ -75,34 +154,12 @@ class TranslationFileManager
         foreach ($locales as $locale) {
             if (array_key_exists($locale, $translations)) {
                 // Get filename
-                $translationFile = $this->getTranslationGroupFilePath($translationGroup, $locale);
+                $translationFile = $this->getTranslationFilePath($translationGroup, $locale);
 
                 // Write file
                 $this->writeArrayToFile($translationFile, $translations[$locale]);
             }
         }
-    }
-
-    /**
-     * Get the array of all available translation groups.
-     *
-     * @return array
-     */
-    public function getAvailableTranslationGroups()
-    {
-        // Use the fallback locale as the default
-        $defaultLocale = $this->getFallbackLocale();
-
-        // Get files in the default directory
-        $files = File::files($this->getLocalesDirectory() . DIRECTORY_SEPARATOR . $defaultLocale);
-        $files = collect($files);
-
-        // Return array of filenames without extension
-        return $files
-            ->map(function($item, $key) {
-                return pathinfo($item, PATHINFO_FILENAME);
-            })
-            ->toArray();
     }
 
     /**
@@ -140,84 +197,24 @@ class TranslationFileManager
     }
 
     /**
-     * Gets the entries of a specified locale, uses fallback values where necessary.
+     * Get the array of all available translation groups.
      *
-     * @param string $translationGroup
-     * @param string $locale
-     * @param array $fallback
      * @return array
      */
-    private function getEntriesOrDefault($translationGroup, $locale, $fallback)
+    public function getAvailableTranslationGroups()
     {
-        // Read file
-        $translation = require($this->getTranslationGroupFilePath($translationGroup, $locale));
+        // Use the fallback locale as the default
+        $defaultLocale = $this->getFallbackLocale();
 
-        // Get entries
-        $entries = [];
+        // Get files in the default directory
+        $files = File::files($this->getLocalesDirectory() . DIRECTORY_SEPARATOR . $defaultLocale);
+        $files = collect($files);
 
-        // Loop through default
-        foreach ($fallback as $translationKey => $fallbackValue) {
-            if (is_array($translation) && array_key_exists($translationKey, $translation)) {
-                // Entry exists in the translation, use it
-                $entries[$translationKey] = $translation[$translationKey];
-            } else {
-                // Entry not in translation, use fallback
-                $entries[$translationKey] = $fallbackValue;
-            }
-        }
-
-        return $entries;
-    }
-
-    /**
-     * Gets the array of the available languages.
-     *
-     * @param string $path
-     * @return array
-     */
-    private function getLocales($path)
-    {
-        // Get subdirectories
-        return collect(File::directories($path))->map(function($item, $key) {
-            return pathinfo($item, PATHINFO_BASENAME);
-        });
-    }
-
-    /**
-     * Gets the path to the language files' directory.
-     *
-     * @return string
-     */
-    private function getLocalesDirectory()
-    {
-        // Get path from config
-        return config('transeditor.language_file_path');
-    }
-
-    /**
-     * Gets the applications fallback locale.
-     *
-     * @return string
-     */
-    private function getFallbackLocale()
-    {
-        return config('app.fallback_locale');
-    }
-
-    /**
-     * Gets the path to a translation group file.
-     *
-     * @param string $translationGroup
-     * @param string $locale
-     * @return string
-     */
-    private function getTranslationGroupFilePath($translationGroup, $locale)
-    {
-        return $this->getLocalesDirectory() .
-            DIRECTORY_SEPARATOR .
-            $locale .
-            DIRECTORY_SEPARATOR .
-            $translationGroup .
-            '.php';
+        // Return array of filenames without extension
+        return $files
+            ->map(function ($item, $key) {
+                return pathinfo($item, PATHINFO_FILENAME);
+            })
+            ->toArray();
     }
 }
