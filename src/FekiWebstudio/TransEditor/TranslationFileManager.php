@@ -88,6 +88,51 @@ class TranslationFileManager
     }
 
     /**
+     * Writes the files of the specified translation group.
+     *
+     * @param string $translationGroup
+     * @param array $translations
+     */
+    public function write($translationGroup, $translations)
+    {
+        // Get all locales
+        $locales = $this->getLocales($this->getLocalesDirectory());
+
+        // Loop through translations and write corresponding files
+        foreach ($locales as $locale) {
+            if (array_key_exists($locale, $translations)) {
+                // Get filename
+                $translationFile = $this->getTranslationFilePath($translationGroup, $locale);
+
+                // Write file
+                $this->writeArrayToFile($translationFile, $translations[$locale]);
+            }
+        }
+    }
+    
+    /**
+     * Get the array of all available translation groups.
+     *
+     * @return array
+     */
+    public function getAvailableTranslationGroups()
+    {
+        // Use the fallback locale as the default
+        $defaultLocale = $this->getFallbackLocale();
+
+        // Get files in the default directory
+        $files = File::files($this->getLocalesDirectory() . DIRECTORY_SEPARATOR . $defaultLocale);
+        $files = collect($files);
+
+        // Return array of filenames without extension
+        return $files
+            ->map(function ($item, $key) {
+                return pathinfo($item, PATHINFO_FILENAME);
+            })
+            ->toArray();
+    }
+
+    /**
      * Gets the array of the available languages.
      *
      * @param string $path
@@ -140,29 +185,6 @@ class TranslationFileManager
     }
 
     /**
-     * Writes the files of the specified translation group.
-     *
-     * @param string $translationGroup
-     * @param array $translations
-     */
-    public function write($translationGroup, $translations)
-    {
-        // Get all locales
-        $locales = $this->getLocales($this->getLocalesDirectory());
-
-        // Loop through translations and write corresponding files
-        foreach ($locales as $locale) {
-            if (array_key_exists($locale, $translations)) {
-                // Get filename
-                $translationFile = $this->getTranslationFilePath($translationGroup, $locale);
-
-                // Write file
-                $this->writeArrayToFile($translationFile, $translations[$locale]);
-            }
-        }
-    }
-
-    /**
      * Writes an array to a file.
      *
      * @param string $fileName
@@ -194,27 +216,5 @@ class TranslationFileManager
     private function arrayToString($array)
     {
         return var_export($array, true);
-    }
-
-    /**
-     * Get the array of all available translation groups.
-     *
-     * @return array
-     */
-    public function getAvailableTranslationGroups()
-    {
-        // Use the fallback locale as the default
-        $defaultLocale = $this->getFallbackLocale();
-
-        // Get files in the default directory
-        $files = File::files($this->getLocalesDirectory() . DIRECTORY_SEPARATOR . $defaultLocale);
-        $files = collect($files);
-
-        // Return array of filenames without extension
-        return $files
-            ->map(function ($item, $key) {
-                return pathinfo($item, PATHINFO_FILENAME);
-            })
-            ->toArray();
     }
 }
